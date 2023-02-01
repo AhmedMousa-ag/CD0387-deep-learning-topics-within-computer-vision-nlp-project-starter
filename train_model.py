@@ -17,11 +17,12 @@ from smdebug import modes
 from smdebug.profiler.utils import str2bool
 from smdebug.pytorch import get_hook
 import time
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logger.addHandler(logging.StreamHandler(sys.stdout))
-import argparse
 
 def test(model, test_loader,criterion,hook):
     if hook:
@@ -32,7 +33,7 @@ def test(model, test_loader,criterion,hook):
     with torch.no_grad():
         for data, target in test_loader:
             output = model(data)
-            test_loss += criterion(output, target, size_average=False).item()  # sum up batch loss
+            test_loss += criterion(output, target).item()  # sum up batch loss
             pred = output.max(1, keepdim=True)[1]  # get the index of the max log-probability
             correct += pred.eq(target.view_as(pred)).sum().item()
 
@@ -71,7 +72,7 @@ def train(model, train_loader, criterion, optimizer,test_loader,args,hook):
         epoch_time = time.time() - start
         epoch_times.append(epoch_time)
     p50 = np.percentile(epoch_times, 50)
-    return p50
+    return model,p50
     
 def net():
 
@@ -82,16 +83,16 @@ def net():
 
     num_features=model.fc.in_features
     model.fc = nn.Sequential(
-                   nn.Linear(num_features, 111)) #TODO change it to the number of feature
+                   nn.Linear(num_features, 133)) #TODO change it to the number of feature
     return model
 
 def create_data_loaders(dir_path, batch_size):
 
     logger.info("Get train data loader")
     dataset = datasets.ImageFolder(dir_path, transform=transforms.Compose(
-            [transforms.ToTensor(),transforms.Resize([240,240], 
+            [transforms.ToTensor(),transforms.Resize([240,240]), 
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-)]
+]
         ),
     )
     return torch.utils.data.DataLoader(
@@ -121,11 +122,11 @@ def main(args):
     Remember that you will need to set up a way to get training data from S3
     '''
     train_dir = os.path.join(args.data_dir,"train")
-    train_loader= create_data_loaders(train_dir,args.batch_size,args)
+    train_loader= create_data_loaders(train_dir,args.batch_size)
     test_dir = os.path.join(args.data_dir,"test")
     test_loader= create_data_loaders(test_dir,args.batch_size)
     
-    median_time=train(model, train_loader, loss_criterion, optimizer,test_loader,args,hook)
+    model,median_time=train(model, train_loader, loss_criterion, optimizer,test_loader,args,hook)
     print("Median training time per Epoch=%.1f sec" % median_time)
 
     '''

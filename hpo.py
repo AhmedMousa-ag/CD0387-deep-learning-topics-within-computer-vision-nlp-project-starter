@@ -16,12 +16,12 @@ import json
 import logging
 import os
 import sys
-
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 logger.addHandler(logging.StreamHandler(sys.stdout))
-import argparse
 
 def test(model, test_loader,criterion):
 
@@ -31,7 +31,7 @@ def test(model, test_loader,criterion):
     with torch.no_grad():
         for data, target in test_loader:
             output = model(data)
-            test_loss += criterion(output, target, size_average=False).item()  # sum up batch loss
+            test_loss += criterion(output, target).item()  # sum up batch loss
             pred = output.max(1, keepdim=True)[1]  # get the index of the max log-probability
             correct += pred.eq(target.view_as(pred)).sum().item()
 
@@ -63,6 +63,7 @@ def train(model, train_loader, criterion, optimizer,test_loader,args):
                     )
                 )
         test(model, test_loader,criterion)
+        return model
     
     
 def net():
@@ -74,16 +75,16 @@ def net():
 
     num_features=model.fc.in_features
     model.fc = nn.Sequential(
-                   nn.Linear(num_features, 111)) #TODO change it to the number of feature
+                   nn.Linear(num_features, 133)) #TODO change it to the number of feature
     return model
 
 def create_data_loaders(dir_path, batch_size):
 
     logger.info("Get train data loader")
     dataset = datasets.ImageFolder(dir_path, transform=transforms.Compose(
-            [transforms.ToTensor(),transforms.Resize([240,240], 
+            [transforms.ToTensor(),transforms.Resize([240,240]), 
             transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-)]
+]
         ),
     )
     return torch.utils.data.DataLoader(
